@@ -2,6 +2,30 @@
 
 纯思考空转熔断器。挂在 `agent/assistant-stream` 事件上，对「只思考、零产出」的退化回合实施三重熔断。
 
+## 安装
+
+**方式一：从 npm 安装（推荐）**
+
+```sh
+dsh plugin add dsh-thinking-guard
+```
+
+**方式二：从 GitHub 安装**
+
+```sh
+dsh plugin add github:ethanwong-hk/dsh-thinking-guard
+```
+
+**方式三：手工挂载**
+
+把本仓库放到 `~/.dsh/plugins/dsh-thinking-guard/`，然后在 `~/.dsh/cordis.patch.yml` 中加入 `cordis.patch.yml` 里的 `insert` 片段（见下方「配置」）。
+
+安装后**重启 DSH** 生效。验证是否加载：
+
+```sh
+grep -n "thinking-guard" ~/.dsh/cordis.patch.yml
+```
+
 ## 为什么需要它
 
 `dsh-agent-loop` 的 `step()` 只在**流结束后**才做终止判定（`lib/index.js:1115-1119`）。流不结束，`turn/end` 就永不写入。
@@ -29,12 +53,17 @@
 ```yaml
 - insert:
     - id: thinking-guard
-      name: "file:///Users/USER/.dsh/plugins/dsh-thinking-guard/lib/index.js"
+      name: "dsh-thinking-guard"
       config:
         enabled: true
-        thinkingOnlyMs: 150000
-        maxThinkingChars: 120000
-        repeatThreshold: 8
+        # 只思考、零 text/tool-call 的持续时长上限（毫秒）
+        thinkingOnlyMs: 45000
+        # 单次尝试 reasoning 字符总量上限
+        maxThinkingChars: 80000
+        # 退化循环：重复次数阈值
+        repeatThreshold: 3
+        # 熔断后自动注入「继续当前任务」指令
+        autoContinue: true
         notify: true
         verbose: false
 ```
