@@ -1,0 +1,51 @@
+{
+  "name": "dsh-thinking-guard",
+  "version": "1.0.0",
+  "description": "Circuit breaker for pure-thinking idle loops in DSH agent turns: triple fusing on timeout, reasoning volume, and degenerate repetition.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "test",
+    "README.md",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "test": "node test/guard.test.mjs"
+  },
+  "author": "Ethan Wong <reiji20@163.com>",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "thinking-guard",
+    "circuit-breaker",
+    "idle-loop",
+    "reasoning-stall",
+    "agent-reliability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/USER/dsh-thinking-guard.git"
+  },
+  "homepage": "https://github.com/USER/dsh-thinking-guard#readme",
+  "bugs": {
+    "url": "https://github.com/USER/dsh-thinking-guard/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "engines": {
+    "node": ">=18",
+    "dsh": ">=0.1.0"
+  }
+}

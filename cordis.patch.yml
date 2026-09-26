@@ -1,0 +1,23 @@
+# dsh-thinking-guard bundle patch
+#
+# 以本插件包为单位挂载时使用（插入 profile 的 layer stack）。
+# 若你已手工在 ~/.dsh/cordis.patch.yml 的 DSH_THINKING_GUARD 段里配置过，
+# 二者等价，保留其一即可。
+#
+# 注意：这里的 config 会覆盖插件内 DEFAULTS，请与 lib/index.js 的
+# DEFAULTS 保持同步，否则会出现「配置文件写的值 ≠ 实际生效值」。
+- insert:
+    - id: thinking-guard
+      name: 'dsh-thinking-guard'
+      config:
+        enabled: true
+        # 只思考、零 text/tool-call 的持续时长上限（毫秒）
+        thinkingOnlyMs: 45000
+        # 单次尝试 reasoning 字符总量上限
+        maxThinkingChars: 80000
+        # 退化循环：短语连续重复次数阈值
+        repeatThreshold: 3
+        # 熔断后自动注入「继续当前任务」指令
+        autoContinue: true
+        notify: true
+        verbose: false
