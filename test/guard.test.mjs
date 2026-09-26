@@ -1,4 +1,5 @@
-const mod = await import('/Users/USER/.dsh/plugins/dsh-thinking-guard/lib/index.js');
+// 相对本文件解析，避免写死安装位置（否则随包分发会泄露维护者的本机目录）
+const mod = await import(new URL('../lib/index.js', import.meta.url).href);
 function h(config) {
   const handlers = new Map();
   mod.apply({ on: (e, f) => handlers.set(e, f), effect: (f) => f() }, config);
