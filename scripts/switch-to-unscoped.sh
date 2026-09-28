@@ -241,7 +241,8 @@ ok "$UNSCOPED@$VERSION 已上线"
 tmpd="$(mktemp -d)"; TMPDIR_TO_CLEAN="$tmpd"
 curl -s -m 60 -o "$tmpd/p.tgz" "https://registry.npmjs.org/$UNSCOPED/-/$UNSCOPED-$VERSION.tgz" 2>/dev/null
 if tar -xzf "$tmpd/p.tgz" -C "$tmpd" 2>/dev/null; then
-  if grep -rq '/Users/reiji' "$tmpd/package" 2>/dev/null; then
+  # 不写死用户名：任何 /Users/<name>、/home/<name> 或 Windows 用户目录都算
+  if grep -rqE '(/Users/|/home/)[A-Za-z0-9._-]+/|[A-Za-z]:\\Users\\' "$tmpd/package" 2>/dev/null; then
     bad "tarball 含个人路径 —— 中止，A 保持原样"
     exit 1
   fi

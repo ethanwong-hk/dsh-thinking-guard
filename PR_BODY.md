@@ -23,7 +23,7 @@ Together these leave a reasoning-only turn unable to stop itself.
 
 - `dsh.bundle` manifest with `patch: ./cordis.patch.yml` — declared, and the patch file is at the repo root
 - `dsh-plugin` topic — added
-- Real, working code — 427 lines in `lib/index.js` plus an 11-case regression suite in `test/guard.test.mjs` (89 lines; `npm test` passes 11/11)
+- Real, working code — 435 lines in `lib/index.js` plus an 11-case regression suite in `test/guard.test.mjs` (89 lines; `npm test` passes 11/11)
 - Every number above is from `DEFAULTS` in `lib/index.js`
 
 ## Note on repo age
