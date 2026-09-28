@@ -1,5 +1,5 @@
 {
-  "name": "@ethanwong-hk/dsh-thinking-guard",
+  "name": "dsh-thinking-guard",
   "version": "1.0.2",
   "description": "Circuit breaker for pure-thinking idle loops in DSH agent turns: triple fusing on timeout, reasoning volume, and degenerate repetition.",
   "type": "module",
