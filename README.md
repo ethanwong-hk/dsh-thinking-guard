@@ -7,7 +7,7 @@
 **方式一：从 npm 安装（推荐）**
 
 ```sh
-dsh plugin add dsh-thinking-guard
+dsh plugin add @ethanwong-hk/dsh-thinking-guard
 ```
 
 **方式二：从 GitHub 安装**
