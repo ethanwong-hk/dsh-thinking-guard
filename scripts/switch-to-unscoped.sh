@@ -50,8 +50,30 @@ status() {
 
 if [ "${1:-}" = "--check" ]; then
   status
+  lock_state="$(curl -s -m 20 "https://registry.npmjs.org/$UNSCOPED" 2>/dev/null | python3 -c '
+import json, sys, datetime
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("unknown"); raise SystemExit
+if (d.get("dist-tags") or {}).get("latest"):
+    print("published"); raise SystemExit
+unp = (d.get("time") or {}).get("unpublished")
+if not unp:
+    print("free"); raise SystemExit
+t = datetime.datetime.fromisoformat(unp["time"].replace("Z", "+00:00"))
+lock = t + datetime.timedelta(hours=24)
+now = datetime.datetime.now(datetime.timezone.utc)
+bj = datetime.timezone(datetime.timedelta(hours=8))
+print("free" if now >= lock else "locked " + lock.astimezone(bj).strftime("%m-%d %H:%M"))
+' 2>/dev/null)"
   printf '\n'
-  printf '  B 解锁后（09-28 03:56 北京）再跑一次不带 --check 的命令。\n'
+  case "$lock_state" in
+    published) printf '  %sB 已发布过，无需切换。%s\n' "$DIM" "$RST" ;;
+    free)      printf '  %sB 可发布 —— 跑 `bash %s` 执行切换（需两次 Touch ID）。%s\n' "$GRN" "$0" "$RST" ;;
+    locked*)   printf '  %sB 仍锁定：%s 北京。%s\n' "$YEL" "${lock_state#locked }" "$RST" ;;
+    *)         printf '  %s无法判定 B 的状态（registry 查询失败）。%s\n' "$YEL" "$RST" ;;
+  esac
   exit 0
 fi
 
@@ -96,6 +118,47 @@ case "$unlock_out" in
 esac
 
 # ── 步骤 1：切回 unscoped 名 ────────────────────────────────────────────────
+# 记录原始包名，供失败时回滚（2026-09-28 实测教训：步骤 1 改了 package.json，
+# 若步骤 3 发布失败且不回滚，本地清单会指向一个 npm 上不存在的名字，市场因此
+# 回退到 github: 源码安装，README 的安装命令也会 404）
+ORIGINAL_NAME="$(python3 -c 'import json;print(json.load(open("package.json"))["name"])')"
+ROLLED_BACK=0
+TMPDIR_TO_CLEAN=""
+cleanup_tmp() { [ -n "$TMPDIR_TO_CLEAN" ] && rm -rf "$TMPDIR_TO_CLEAN"; }
+rollback() {
+  [ "$ROLLED_BACK" = "1" ] && return
+  ROLLED_BACK=1
+  printf '\n  %s!%s 回滚 package.json / README 到 %s\n' "$YEL" "$RST" "$ORIGINAL_NAME"
+  python3 - "$ORIGINAL_NAME" <<'PYROLLBACK'
+import json, sys, re, pathlib
+name = sys.argv[1]
+p = pathlib.Path('package.json')
+d = json.loads(p.read_text(encoding='utf-8'))
+if d['name'] != name:
+    d['name'] = name
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    print(f'    ✓ package.json → {name}')
+r = pathlib.Path('README.md')
+s = r.read_text(encoding='utf-8')
+s2 = re.sub(r'dsh plugin add \S*dsh-thinking-guard', f'dsh plugin add {name}', s)
+if s2 != s:
+    r.write_text(s2, encoding='utf-8')
+    print('    ✓ README.md 安装命令已复原')
+PYROLLBACK
+  # 步骤 2 已经 push 过，工作区现在有未提交的复原改动
+  if ! git diff --quiet 2>/dev/null; then
+    git add -A
+    git -c commit.gpgsign=false commit -q -m "revert: keep the published package name after a failed switch
+
+The switch script renamed package.json before publishing; the publish step
+failed, so the manifest is restored to the name that actually exists on the
+registry." 2>/dev/null && printf '    ✓ 已提交复原\n'
+    git -c http.postBuffer=524288000 push 2>&1 | tail -1 | sed 's/^/    /'
+  fi
+}
+# 单一 EXIT trap —— bash 的 trap 是覆盖而非追加，第二次 trap 会静默取消第一次
+trap 'cleanup_tmp; rollback' EXIT
+
 step "1/5 切换 package.json 与 README 到 $UNSCOPED"
 python3 - "$UNSCOPED" <<'PY'
 import json, sys, re, pathlib
@@ -168,11 +231,14 @@ done
 if [ "$launch_ok" != 1 ]; then
   bad "$UNSCOPED@$VERSION 未上线 —— 中止后续步骤，A 保持原样不动"
   printf '  %s查看 /tmp/switch_publish.log 排查。%s\n' "$DIM" "$RST"
+  rollback
+  ROLLED_BACK=1   # 已手动回滚，trap 不再重复
+  printf '  %s回滚完成：package.json 仍指向 %s，与 registry 一致。%s\n' "$GRN" "$ORIGINAL_NAME" "$RST"
   exit 1
 fi
 ok "$UNSCOPED@$VERSION 已上线"
 
-tmpd="$(mktemp -d)"; trap 'rm -rf "$tmpd"' EXIT
+tmpd="$(mktemp -d)"; TMPDIR_TO_CLEAN="$tmpd"
 curl -s -m 60 -o "$tmpd/p.tgz" "https://registry.npmjs.org/$UNSCOPED/-/$UNSCOPED-$VERSION.tgz" 2>/dev/null
 if tar -xzf "$tmpd/p.tgz" -C "$tmpd" 2>/dev/null; then
   if grep -rq '/Users/reiji' "$tmpd/package" 2>/dev/null; then
@@ -207,6 +273,7 @@ fi
 
 # ── 收尾 ──────────────────────────────────────────────────────────────────
 step "完成"
+ROLLED_BACK=1   # 全部成功：禁用 EXIT trap，避免把已完成的切换撤掉
 status
 printf '\n  安装命令: %sdsh plugin add %s%s\n' "$GRN" "$UNSCOPED" "$RST"
 printf '  回滚: %sgit revert HEAD && bash scripts/switch-to-unscoped.sh%s\n\n' "$DIM" "$RST"
